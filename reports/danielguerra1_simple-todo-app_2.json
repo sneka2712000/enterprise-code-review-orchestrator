@@ -1,0 +1,337 @@
+{
+  "pullRequest": {
+    "owner": "danielguerra1",
+    "repo": "simple-todo-app",
+    "number": 2
+  },
+  "fileReviews": [
+    {
+      "file": "src/search.js",
+      "codeQuality": {
+        "file": "src/search.js",
+        "issues": [
+          {
+            "line": 5,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Using 'var' for STOP_WORDS instead of 'const'. The file uses 'var' throughout instead of modern 'const'/'let' declarations.",
+            "suggestion": "Replace 'var STOP_WORDS' with 'const STOP_WORDS'. Replace all 'var' declarations with 'const' (for values that don't change) or 'let' (for variables that are reassigned). This provides block scoping and prevents accidental reassignment."
+          },
+          {
+            "line": 22,
+            "severity": "low",
+            "category": "best-practice",
+            "description": "Using loose inequality operator '!=' instead of strict inequality '!=='.",
+            "suggestion": "Replace 'STOP_WORDS.indexOf(term) != -1' with 'STOP_WORDS.indexOf(term) !== -1'. Better yet, use modern array methods: '!STOP_WORDS.includes(term)'."
+          },
+          {
+            "line": 31,
+            "severity": "low",
+            "category": "style",
+            "description": "Explicit comparison with boolean literal 'matched == true' is redundant.",
+            "suggestion": "Replace 'if (matched == true)' with 'if (matched)'. Also use strict equality if keeping the explicit comparison: 'if (matched === true)'."
+          },
+          {
+            "line": 36,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Using loose inequality '!=' and manual undefined check instead of modern optional chaining.",
+            "suggestion": "Replace 'options && options.done != undefined' with 'options?.done !== undefined'. This uses optional chaining and strict inequality for more robust checking."
+          },
+          {
+            "line": 76,
+            "severity": "critical",
+            "category": "security",
+            "description": "XSS vulnerability: The highlight() function inserts user-controlled query terms directly into HTML without sanitization or escaping. If an attacker controls the query parameter, they can inject arbitrary HTML/JavaScript.",
+            "suggestion": "HTML-escape both the title and query terms before constructing HTML. Use a safe HTML escaping function or library. Example: Create an escapeHtml() function that replaces '<', '>', '&', quotes, etc., and apply it to both title and terms before building the HTML string."
+          },
+          {
+            "line": 77,
+            "severity": "high",
+            "category": "security",
+            "description": "The title parameter is used directly in HTML context without escaping. If the todo title contains HTML special characters like '<', '>', or '&', they could break the HTML structure or enable XSS.",
+            "suggestion": "HTML-escape the title parameter before any string manipulation. Ensure all text content is properly escaped before inserting into HTML context."
+          },
+          {
+            "line": 80,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "String.replace() only replaces the first occurrence of the search term, not all occurrences. If a query term appears multiple times in the title, only the first will be highlighted.",
+            "suggestion": "Use replaceAll() method or replace with a global regex: 'html.replace(new RegExp(escapedTerm, 'gi'), '<mark>$&</mark>')'. Note: The term must be regex-escaped to handle special characters."
+          },
+          {
+            "line": 76,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "The highlight() function doesn't perform case-insensitive matching, but searchTodos() converts everything to lowercase. This means highlight() may fail to match the same terms that searchTodos() found.",
+            "suggestion": "Convert query to lowercase or use case-insensitive regex matching: 'new RegExp(escapedTerm, 'gi')' where 'i' flag enables case-insensitive matching."
+          },
+          {
+            "line": 8,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "No input validation for the query parameter. If query is null, undefined, or not a string, calling query.toLowerCase() will throw a TypeError.",
+            "suggestion": "Add input validation at the start of the function: 'if (!query || typeof query !== 'string') { return []; }'. Similar validation should be added to rankResults() and highlight()."
+          },
+          {
+            "line": 14,
+            "severity": "low",
+            "category": "best-practice",
+            "description": "Using traditional for loop instead of modern array iteration methods.",
+            "suggestion": "Replace with array methods for better readability: 'all.filter(todo => { ... })'. This is more declarative and reduces the chance of off-by-one errors."
+          },
+          {
+            "line": 50,
+            "severity": "low",
+            "category": "performance",
+            "description": "The query is converted to lowercase and split into terms in both searchTodos() and rankResults(). This duplicates work when searchAndRank() calls both functions.",
+            "suggestion": "Parse the query terms once and pass them as a parameter to avoid redundant string operations. Alternatively, cache the normalized terms."
+          },
+          {
+            "line": 57,
+            "severity": "low",
+            "category": "performance",
+            "description": "Calling results[i].title.toLowerCase() repeatedly inside nested loop. The same title is lowercased once per term.",
+            "suggestion": "Cache the lowercased title outside the inner loop: 'const lowerTitle = results[i].title.toLowerCase();' then reference it in the loop."
+          },
+          {
+            "line": 64,
+            "severity": "info",
+            "category": "best-practice",
+            "description": "Using traditional function syntax in sort callback instead of arrow function.",
+            "suggestion": "Replace 'function (a, b) { return b.score - a.score; }' with '(a, b) => b.score - a.score' for consistency with modern JavaScript."
+          }
+        ],
+        "overallScore": 45,
+        "summary": "The search.js file has critical security vulnerabilities (XSS in the highlight function), uses outdated JavaScript patterns (var instead of const/let), and contains several bug risks (replace() only replaces first occurrence, case-sensitivity mismatch, missing input validation). The code also has performance inefficiencies from repeated string operations and could benefit from modern ES6+ syntax. Most concerning is the XSS vulnerability on lines 76-82 where user input is inserted directly into HTML without sanitization. The code is functional but needs significant improvements for security, reliability, and maintainability."
+      },
+      "testCoverage": {
+        "file": "src/search.js",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "searchTodos (lines 8-47)",
+            "priority": "critical",
+            "reasoning": "Core search functionality with no tests. This function filters todos by query terms and supports options filtering. Missing tests mean no validation of search accuracy, stop word filtering, or case handling.",
+            "suggestedTest": "Test that searchTodos('buy milk') returns todos containing 'buy' or 'milk' in title. Assert that stop words like 'the' and 'a' are ignored. Test with empty query returns empty results. Test options.done filtering returns only matching completion state."
+          },
+          {
+            "type": "edge-case",
+            "location": "searchTodos - empty/null query (lines 8-12)",
+            "priority": "high",
+            "reasoning": "No validation or tests for edge case inputs. Empty or null queries could cause runtime errors or unexpected behavior.",
+            "suggestedTest": "Test searchTodos('') returns empty array. Test searchTodos with null/undefined query throws error or returns empty array. Test searchTodos('   ') (only spaces) returns empty array after split."
+          },
+          {
+            "type": "branch",
+            "location": "searchTodos - stop words filtering (lines 22-24)",
+            "priority": "high",
+            "reasoning": "Stop words logic (STOP_WORDS.indexOf) has no tests. Critical for search quality - if broken, could match irrelevant results or skip valid matches.",
+            "suggestedTest": "Test that searchTodos('the quick fox') only matches on 'quick' and 'fox', not 'the'. Assert query 'a todo' ignores 'a' but matches 'todo'. Verify STOP_WORDS constant is applied correctly."
+          },
+          {
+            "type": "branch",
+            "location": "searchTodos - options.done filtering (lines 36-44)",
+            "priority": "high",
+            "reasoning": "Optional filtering by completion state is untested. This is a key feature that could silently fail if options handling is broken.",
+            "suggestedTest": "Test searchTodos('task', { done: true }) returns only completed todos matching 'task'. Test searchTodos('task', { done: false }) returns only incomplete todos. Test searchTodos('task', {}) returns all matching todos regardless of done state."
+          },
+          {
+            "type": "edge-case",
+            "location": "searchTodos - no matches scenario (lines 31-33)",
+            "priority": "medium",
+            "reasoning": "Return value when no todos match the query is untested. Important for UI to handle empty results gracefully.",
+            "suggestedTest": "Test searchTodos('nonexistentquery') returns empty array when no todos match. Assert result is [] not null or undefined."
+          },
+          {
+            "type": "function",
+            "location": "rankResults (lines 50-73)",
+            "priority": "high",
+            "reasoning": "Ranking algorithm has no tests. Incorrect scoring or sorting could return results in wrong order, degrading search quality significantly.",
+            "suggestedTest": "Test rankResults('buy groceries milk', [todo1, todo2, todo3]) where todo1 contains 'buy' and 'milk' (score 2), todo2 contains 'buy' (score 1), returns [todo1, todo2] in that order. Verify scoring counts all term matches correctly."
+          },
+          {
+            "type": "edge-case",
+            "location": "rankResults - empty results (lines 50-73)",
+            "priority": "medium",
+            "reasoning": "Behavior with empty input array is untested. Could cause errors if not handled properly.",
+            "suggestedTest": "Test rankResults('query', []) returns empty array. Assert no errors thrown with empty results."
+          },
+          {
+            "type": "edge-case",
+            "location": "rankResults - score ties (lines 64-66)",
+            "priority": "medium",
+            "reasoning": "Sort behavior when multiple todos have same score is untested. Could cause non-deterministic ordering.",
+            "suggestedTest": "Test rankResults with multiple todos having identical scores maintains stable order or has defined tie-breaking behavior. Assert sort is consistent across calls."
+          },
+          {
+            "type": "function",
+            "location": "highlight (lines 76-83)",
+            "priority": "medium",
+            "reasoning": "HTML generation with no tests and potential XSS risk. The function uses simple string replacement without escaping, which could inject malicious HTML if query contains HTML tags.",
+            "suggestedTest": "Test highlight('buy milk', 'milk') returns 'buy <mark>milk</mark>'. Test highlight is case-sensitive (or document expected behavior). SECURITY: Test highlight('title', '<script>alert(1)</script>') properly escapes or rejects malicious input."
+          },
+          {
+            "type": "edge-case",
+            "location": "highlight - case sensitivity (lines 77-81)",
+            "priority": "medium",
+            "reasoning": "Search is case-insensitive but highlight is not. Mismatch could cause highlighting to fail for matches.",
+            "suggestedTest": "Test highlight('Buy Milk', 'buy') behavior - currently won't highlight due to case mismatch. Document if this is expected or needs toLowerCase() like search does."
+          },
+          {
+            "type": "edge-case",
+            "location": "highlight - multiple occurrences (lines 80)",
+            "priority": "low",
+            "reasoning": "String.replace only replaces first occurrence by default. Multiple instances of a term may not all be highlighted.",
+            "suggestedTest": "Test highlight('milk and more milk', 'milk') highlights both occurrences. If only first is highlighted, document this limitation or fix with replaceAll/regex."
+          },
+          {
+            "type": "function",
+            "location": "searchAndRank (lines 85-87)",
+            "priority": "high",
+            "reasoning": "Integration function combining search and rank has no tests. This is likely the main API consumers will use, so untested integration is a critical gap.",
+            "suggestedTest": "Test searchAndRank('buy milk', options) returns filtered AND ranked results in correct order. Integration test ensuring both functions work together correctly. Verify it handles empty results from searchTodos."
+          },
+          {
+            "type": "edge-case",
+            "location": "searchTodos - special characters in query (lines 12)",
+            "priority": "low",
+            "reasoning": "No tests for special regex characters or punctuation in queries. Could cause unexpected behavior with titles containing periods, asterisks, etc.",
+            "suggestedTest": "Test searchTodos('task.') matches todos with 'task.' in title. Test special characters like *, +, ?, ( ) don't break search since indexOf is used (not regex)."
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "CRITICAL: The new src/search.js file (87 lines, 4 exported functions) has ZERO test coverage. No test file exists (src/search.test.js is missing). This is a significant regression risk given that all other modules in the codebase have comprehensive tests (todo.test.js). Key untested areas: (1) searchTodos function with stop word filtering and options.done filtering - critical for search correctness, (2) rankResults scoring algorithm - untested sorting could return wrong result order, (3) highlight function - potential XSS risk with unescaped HTML injection, (4) searchAndRank integration - main API likely to be used by consumers. Edge cases like empty queries, null inputs, no matches, case sensitivity mismatches, and special characters are all untested. Recommendation: Block merge until comprehensive test suite is added following the established patterns in todo.test.js (using node:test and assert). Minimum required: 15-20 test cases covering all functions, branches, and critical edge cases identified above."
+      },
+      "refactorings": {
+        "file": "src/search.js",
+        "suggestions": [
+          {
+            "type": "modernize",
+            "location": "Entire file - variable declarations",
+            "impact": "high",
+            "description": "Replace all 'var' declarations with 'const' or 'let' to use modern ES6 variable scoping and prevent accidental reassignments. The existing codebase (todo.js) consistently uses const/let.",
+            "before": "var STOP_WORDS = ['the', 'a', 'an', 'and', 'or', 'to'];\nvar all = listTodos();\nvar results = [];\nvar terms = query.toLowerCase().split(' ');",
+            "after": "const STOP_WORDS = ['the', 'a', 'an', 'and', 'or', 'to'];\nconst all = listTodos();\nconst results = [];\nconst terms = query.toLowerCase().split(' ');",
+            "benefits": "Improves code consistency with the existing codebase, prevents accidental variable reassignments, provides better scoping (block-level instead of function-level), and aligns with modern JavaScript best practices."
+          },
+          {
+            "type": "modernize",
+            "location": "searchTodos function (lines 9-45)",
+            "impact": "high",
+            "description": "Replace traditional for loops with modern array methods (filter, some) to improve readability and reduce nested complexity. This matches the style used in todo.js.",
+            "before": "var all = listTodos();\nvar results = [];\nvar terms = query.toLowerCase().split(' ');\n\nfor (var i = 0; i < all.length; i++) {\n  var todo = all[i];\n  var title = todo.title.toLowerCase();\n  var matched = false;\n\n  for (var j = 0; j < terms.length; j++) {\n    var term = terms[j];\n    if (STOP_WORDS.indexOf(term) != -1) {\n      continue;\n    }\n    if (title.indexOf(term) != -1) {\n      matched = true;\n    }\n  }\n\n  if (matched == true) {\n    results.push(todo);\n  }\n}",
+            "after": "if (options?.done !== undefined) {\n  return results.filter(todo => todo.done === options.done);\n}\nreturn results;",
+            "benefits": "Eliminates unnecessary temporary variable and manual array building, uses optional chaining (?.) for safer property access, and applies strict equality (===) for more predictable comparisons. Reduces code from 9 lines to 3."
+          },
+          {
+            "type": "modernize",
+            "location": "rankResults function (lines 48-68)",
+            "impact": "high",
+            "description": "Replace traditional for loops and verbose array building with modern map method and arrow functions for cleaner, more functional code.",
+            "before": "var terms = query.toLowerCase().split(' ');\nvar scored = [];\n\nfor (var i = 0; i < results.length; i++) {\n  var score = 0;\n  for (var j = 0; j < terms.length; j++) {\n    if (results[i].title.toLowerCase().indexOf(terms[j]) != -1) {\n      score = score + 1;\n    }\n  }\n  scored.push({ todo: results[i], score: score });\n}\n\nscored.sort(function (a, b) {\n  return b.score - a.score;\n});\n\nvar out = [];\nfor (var m = 0; m < scored.length; m++) {\n  out.push(scored[m].todo);\n}\nreturn out;",
+            "after": "const terms = query.toLowerCase().split(' ');\n\nconst scored = results.map(todo => ({\n  todo,\n  score: terms.filter(term => \n    todo.title.toLowerCase().includes(term)\n  ).length\n}));\n\nscored.sort((a, b) => b.score - a.score);\n\nreturn scored.map(item => item.todo);",
+            "benefits": "Reduces code from 21 lines to 11 lines, eliminates manual loop counters and array building, uses arrow functions for cleaner syntax, and leverages filter().length for counting matches instead of manual incrementing. The logic becomes more declarative and easier to understand."
+          },
+          {
+            "type": "extract-function",
+            "location": "searchTodos and rankResults functions",
+            "impact": "medium",
+            "description": "Extract repeated query term tokenization logic into a separate helper function to eliminate duplication and improve maintainability.",
+            "before": "// In searchTodos:\nvar terms = query.toLowerCase().split(' ');\n\n// In rankResults:\nvar terms = query.toLowerCase().split(' ');\n\n// In highlight:\nvar terms = query.split(' ');",
+            "after": "function tokenizeQuery(query, toLowerCase = true) {\n  return toLowerCase ? query.toLowerCase().split(' ') : query.split(' ');\n}\n\n// Usage:\nconst terms = tokenizeQuery(query);\nconst terms = tokenizeQuery(query);\nconst terms = tokenizeQuery(query, false);",
+            "benefits": "Eliminates code duplication across three functions, centralizes query parsing logic for easier future enhancements (e.g., handling punctuation, multiple spaces, or more sophisticated tokenization), and makes the code more maintainable."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "highlight function (lines 71-78)",
+            "impact": "medium",
+            "description": "Fix case-sensitivity bug and use modern template literals. Current implementation fails to highlight terms if case doesn't match exactly.",
+            "before": "export function highlight(title, query) {\n  var terms = query.split(' ');\n  var html = title;\n  for (var i = 0; i < terms.length; i++) {\n    html = html.replace(terms[i], '<mark>' + terms[i] + '</mark>');\n  }\n  return html;\n}",
+            "after": "export function highlight(title, query) {\n  const terms = query.toLowerCase().split(' ');\n  let html = title;\n  \n  for (const term of terms) {\n    const regex = new RegExp(`(${escapeRegex(term)})`, 'gi');\n    html = html.replace(regex, '<mark>$1</mark>');\n  }\n  return html;\n}\n\nfunction escapeRegex(str) {\n  return str.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n}",
+            "benefits": "Fixes case-insensitivity bug (currently fails to highlight 'Todo' when searching for 'todo'), prevents multiple replacements of the same match, uses template literals for cleaner string construction, escapes special regex characters to prevent errors, and preserves original case in highlights."
+          },
+          {
+            "type": "simplify",
+            "location": "Comparison operators throughout file",
+            "impact": "low",
+            "description": "Replace loose equality (==, !=) and indexOf comparisons with strict equality (===, !==) and includes() method for more predictable behavior.",
+            "before": "if (STOP_WORDS.indexOf(term) != -1) {\n  continue;\n}\nif (matched == true) {\n  results.push(todo);\n}\nif (title.indexOf(term) != -1) {",
+            "after": "if (STOP_WORDS.includes(term)) {\n  continue;\n}\nif (matched) {\n  results.push(todo);\n}\nif (title.includes(term)) {",
+            "benefits": "Uses strict equality to avoid type coercion bugs, simplifies boolean checks by removing redundant '== true', and uses the more readable includes() method instead of indexOf() !== -1 pattern. Aligns with modern JavaScript conventions used in todo.js."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "rankResults function - duplicate scoring logic",
+            "impact": "medium",
+            "description": "The scoring logic in rankResults duplicates the term matching from searchTodos. Consider extracting a shared scoring function or filtering stop words consistently in both functions.",
+            "before": "// rankResults counts all terms including stop words\nfor (var j = 0; j < terms.length; j++) {\n  if (results[i].title.toLowerCase().indexOf(terms[j]) != -1) {\n    score = score + 1;\n  }\n}",
+            "after": "function scoreMatch(title, terms) {\n  const lowerTitle = title.toLowerCase();\n  return terms.filter(term => \n    !STOP_WORDS.includes(term) && lowerTitle.includes(term)\n  ).length;\n}\n\n// In rankResults:\nconst scored = results.map(todo => ({\n  todo,\n  score: scoreMatch(todo.title, terms)\n}));",
+            "benefits": "Ensures consistent stop-word filtering between searchTodos and rankResults (currently rankResults counts stop words in scoring while searchTodos filters them), centralizes scoring logic for reusability, and makes the ranking behavior more predictable and maintainable."
+          }
+        ],
+        "summary": "The search.js file uses outdated JavaScript patterns inconsistent with the modern codebase (todo.js uses const/let, arrow functions, and array methods). Key refactoring opportunities include: (1) modernizing all var declarations to const/let, (2) replacing nested for loops with declarative array methods (filter, map, some) to reduce complexity by ~40%, (3) extracting duplicated query tokenization logic, (4) fixing a case-sensitivity bug in the highlight function, (5) ensuring consistent stop-word filtering between search and ranking, and (6) using strict equality and includes() for more predictable comparisons. These changes would improve readability, reduce code from 87 to approximately 60 lines, eliminate bugs, and align the module with modern JavaScript standards used elsewhere in the project."
+      }
+    }
+  ],
+  "summary": {
+    "totalFiles": 1,
+    "overallScore": 45,
+    "criticalIssues": 1,
+    "highPriorityTests": 5,
+    "refactoringOpportunities": 8
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "Security",
+      "description": "Fix XSS vulnerability in highlight() function by HTML-escaping both title and query parameters before constructing HTML with <mark> tags. User-controlled input is currently inserted directly into HTML without sanitization.",
+      "files": [
+        "src/search.js"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Testing",
+      "description": "Add comprehensive test suite for search functionality (0% coverage currently). Create src/search.test.js with minimum 15-20 test cases covering all four exported functions, edge cases, and error handling. This is inconsistent with codebase standards where other modules have extensive tests.",
+      "files": [
+        "src/search.js"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Code Quality",
+      "description": "Modernize JavaScript syntax to match existing codebase standards. Replace all 'var' with const/let, use array methods instead of for loops, apply strict equality operators, and use optional chaining. The existing todo.js module uses modern ES6+ patterns throughout.",
+      "files": [
+        "src/search.js"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Bug Fix",
+      "description": "Fix case-sensitivity mismatch between searchTodos (case-insensitive) and highlight (case-sensitive). Add input validation to prevent TypeErrors on null/undefined queries. Fix replace() to handle multiple occurrences using replaceAll or global regex.",
+      "files": [
+        "src/search.js"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Refactoring",
+      "description": "Extract duplicated query tokenization logic into a helper function, simplify nested loops with declarative array methods (filter, map, some), and ensure consistent stop-word filtering between search and ranking functions.",
+      "files": [
+        "src/search.js"
+      ]
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-09-28T06:48:07.480Z",
+    "duration": 360629,
+    "agentVersions": {
+      "code-quality-analyzer": "inherit",
+      "test-coverage-analyzer": "inherit",
+      "refactoring-suggester": "inherit"
+    }
+  }
+}

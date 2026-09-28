@@ -1,0 +1,572 @@
+{
+  "pullRequest": {
+    "owner": "danielguerra1",
+    "repo": "simple-todo-app",
+    "number": 3
+  },
+  "fileReviews": [
+    {
+      "file": "src/db.js",
+      "codeQuality": {
+        "file": "src/db.js",
+        "issues": [
+          {
+            "line": 5,
+            "severity": "info",
+            "category": "maintainability",
+            "description": "The query method accepts raw SQL strings without any validation or parameterization support, which could be problematic if this shim is later replaced with a real database driver.",
+            "suggestion": "Consider adding a parameterized query method signature (e.g., query(sql, params)) to establish a pattern that prevents SQL injection when a real database driver is implemented."
+          },
+          {
+            "line": 7,
+            "severity": "low",
+            "category": "maintainability",
+            "description": "The query method always returns an empty array, which may not adequately simulate real database behavior for testing purposes.",
+            "suggestion": "Consider adding mock data support or configuration options to return test fixtures that better simulate real database responses."
+          }
+        ],
+        "overallScore": 75,
+        "summary": "The db.js file is a minimal database shim for testing purposes. While it serves its purpose as a fixture, it lacks parameterized query support which could lead to security issues if developers use it as a pattern when implementing a real database driver. The code is simple and maintainable but doesn't provide adequate simulation of real database behavior."
+      },
+      "testCoverage": {
+        "file": "src/db.js",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "createConnection() - line 3",
+            "priority": "medium",
+            "reasoning": "Database connection setup is foundational infrastructure. While this is a minimal shim, tests should verify it returns the expected interface with a query method that returns an array.",
+            "suggestedTest": "Test that createConnection() returns an object with an async query method that accepts SQL strings and returns an empty array. Verify console.log is called with the SQL query."
+          },
+          {
+            "type": "edge-case",
+            "location": "query() method - line 5",
+            "priority": "low",
+            "reasoning": "The query method always returns an empty array regardless of input. Tests should verify behavior with various SQL inputs including null, undefined, empty strings, and malformed SQL.",
+            "suggestedTest": "Test query() with edge cases: query(null), query(undefined), query(''), query(very long string). Assert all return empty arrays and log appropriately."
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "No tests exist for db.js. While it's a minimal fixture shim, it lacks basic unit tests to verify the connection interface and query method behavior. Coverage estimate: 0% (no test file exists)."
+      },
+      "refactorings": {
+        "file": "src/db.js",
+        "suggestions": [
+          {
+            "type": "pattern-improvement",
+            "location": "createConnection function (lines 3-10)",
+            "impact": "medium",
+            "description": "The database connection factory creates a new connection object on each call with no connection pooling or reuse. This pattern doesn't match real database driver behavior and could mask performance issues in integration tests.",
+            "before": "export async function createConnection() {\n  return {\n    async query(sql) {\n      console.log('[sql]', sql);\n      return [];\n    }\n  };\n}",
+            "after": "// Singleton connection pool for test consistency\nlet connectionPool = null;\n\nexport async function createConnection() {\n  if (!connectionPool) {\n    connectionPool = {\n      async query(sql) {\n        console.log('[sql]', sql);\n        return [];\n      },\n      async close() {\n        connectionPool = null;\n      }\n    };\n  }\n  return connectionPool;\n}",
+            "benefits": "Singleton pattern better simulates real database connection pooling behavior, prevents creating unnecessary objects in production code paths, and provides a test reset mechanism consistent with the pattern used in todo.js."
+          },
+          {
+            "type": "modernize",
+            "location": "query method (line 5)",
+            "impact": "low",
+            "description": "The mock query method could provide more useful debugging information by returning metadata about the query execution.",
+            "before": "async query(sql) {\n  console.log('[sql]', sql);\n  return [];\n}",
+            "after": "async query(sql) {\n  const timestamp = new Date().toISOString();\n  console.log(`[sql][${timestamp}]`, sql);\n  return {\n    rows: [],\n    rowCount: 0,\n    command: sql.split(' ')[0].toUpperCase(),\n    sql\n  };\n}",
+            "benefits": "Provides better debugging visibility with timestamps and query metadata. Returns a structure that more closely matches real database drivers (like pg or mysql2), making it easier to identify issues when upgrading from mock to real implementation."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "Module structure (entire file)",
+            "impact": "medium",
+            "description": "Missing JSDoc documentation and type definitions make it unclear what contract this module provides.",
+            "before": "// Minimal database shim for the fixture. Not a real driver.\n\nexport async function createConnection() {",
+            "after": "/**\n * Minimal database shim for testing. Not a real driver.\n * @module db\n */\n\n/**\n * Create a database connection.\n * @returns {Promise<Connection>} Database connection object\n */\nexport async function createConnection() {",
+            "benefits": "Explicit type documentation improves IDE autocomplete, makes the API contract clear for consumers, and helps identify type mismatches when integrating with subscription.js."
+          }
+        ],
+        "summary": "The db.js module is a minimal test fixture that could be improved with connection pooling simulation, better query result structures, and comprehensive JSDoc documentation. These changes would make it a more realistic mock that better prepares the codebase for integration with real database drivers."
+      }
+    },
+    {
+      "file": "src/subscription.js",
+      "codeQuality": {
+        "file": "src/subscription.js",
+        "issues": [
+          {
+            "line": 6,
+            "severity": "critical",
+            "category": "security",
+            "description": "Hardcoded API secret key 'FIXTURE-NOT-A-REAL-KEY-prod-billing-9f3a' is committed to source code. Even though labeled as a fixture, this establishes a dangerous pattern and the key name suggests it may have been derived from a production key.",
+            "suggestion": "Move to environment variables: const PAYMENT_API_SECRET = process.env.PAYMENT_API_SECRET || throw new Error('PAYMENT_API_SECRET required'). Never commit secrets to source control, even for testing."
+          },
+          {
+            "line": 7,
+            "severity": "critical",
+            "category": "security",
+            "description": "Hardcoded admin override token 'devflow-admin-2024' is committed to source code. This creates a backdoor authentication mechanism that bypasses normal security controls.",
+            "suggestion": "Remove hardcoded admin tokens entirely. Use proper environment-based secrets with strong randomness: process.env.ADMIN_TOKEN. Generate with crypto.randomBytes(32).toString('hex')."
+          },
+          {
+            "line": 19,
+            "severity": "critical",
+            "category": "security",
+            "description": "SQL injection vulnerability: userId is directly concatenated into the SQL query without sanitization or parameterization. An attacker could pass \"1' OR '1'='1\" to access all subscriptions or use UNION attacks to extract data.",
+            "suggestion": "Use parameterized queries: await db.query('SELECT * FROM subscriptions WHERE user_id = ?', [userId]). This prevents SQL injection by separating SQL code from data."
+          },
+          {
+            "line": 30,
+            "severity": "critical",
+            "category": "security",
+            "description": "SQL injection vulnerability: filters.plan is directly concatenated into SQL without sanitization. Attackers can inject arbitrary SQL through the plan filter.",
+            "suggestion": "Use parameterized queries with prepared statements or a query builder: WHERE plan = ? with parameters array. Validate filter values against allowed enums."
+          },
+          {
+            "line": 33,
+            "severity": "critical",
+            "category": "security",
+            "description": "SQL injection vulnerability: filters.status is directly concatenated into SQL without sanitization. Attackers can inject malicious SQL through the status filter.",
+            "suggestion": "Use parameterized queries: WHERE status = ? with a parameters array [filters.status]. Validate status against allowed values like ['active', 'cancelled', 'expired']."
+          },
+          {
+            "line": 36,
+            "severity": "critical",
+            "category": "security",
+            "description": "SQL injection vulnerability via ORDER BY clause: filters.orderBy is directly concatenated allowing attackers to inject arbitrary SQL including time-based attacks, UNION queries, or information disclosure through error-based injection.",
+            "suggestion": "Whitelist allowed column names: const allowedColumns = ['created_at', 'plan', 'status']; if (!allowedColumns.includes(filters.orderBy)) throw new Error('Invalid column'); sql += ' ORDER BY ' + filters.orderBy;"
+          },
+          {
+            "line": 47,
+            "severity": "high",
+            "category": "security",
+            "description": "Weak token generation using Math.random() which is cryptographically insecure. Tokens are predictable and can be brute-forced by attackers to hijack subscriptions.",
+            "suggestion": "Use cryptographically secure random generation: const token = 'sub_' + crypto.randomBytes(16).toString('hex'); Math.random() should never be used for security-sensitive values."
+          },
+          {
+            "line": 48,
+            "severity": "critical",
+            "category": "security",
+            "description": "MD5 is a cryptographically broken hash function unsuitable for password hashing. It's vulnerable to collision attacks and can be cracked rapidly with modern hardware (billions of hashes per second).",
+            "suggestion": "Use bcrypt, scrypt, or Argon2 for password hashing: import bcrypt from 'bcrypt'; const passwordHash = await bcrypt.hash(req.body.password, 10); These algorithms are designed for passwords with built-in salting and work factors."
+          },
+          {
+            "line": 50,
+            "severity": "critical",
+            "category": "security",
+            "description": "Sensitive PII and payment data (email, cardNumber, cvv, plaintext password) are logged to console. This exposes credentials and PCI-DSS regulated payment card data, creating compliance violations and security risks.",
+            "suggestion": "Remove all logging of sensitive data. Never log passwords, CVV, or full card numbers. If logging is required for debugging, log only non-sensitive identifiers: console.log('Creating subscription for user:', user.userId);"
+          },
+          {
+            "line": 58,
+            "severity": "critical",
+            "category": "security",
+            "description": "SQL injection in INSERT statement: user.userId, user.plan, user.role, token, and passwordHash are directly concatenated without parameterization. Attackers can manipulate these fields to inject SQL, bypass validation, or escalate privileges.",
+            "suggestion": "Use parameterized INSERT: await db.query('INSERT INTO subscriptions (user_id, plan, role, token, password_hash) VALUES (?, ?, ?, ?, ?)', [user.userId, user.plan, user.role, token, passwordHash]);"
+          },
+          {
+            "line": 70,
+            "severity": "critical",
+            "category": "security",
+            "description": "SQL injection in UPDATE statement: subscriptionId is directly concatenated without parameterization. Attackers can manipulate this to cancel other users' subscriptions or inject WHERE conditions.",
+            "suggestion": "Use parameterized query: await db.query('UPDATE subscriptions SET status = ? WHERE id = ?', ['cancelled', subscriptionId]). Also add user ownership validation before allowing cancellation."
+          },
+          {
+            "line": 77,
+            "severity": "critical",
+            "category": "security",
+            "description": "Weak comparison using '==' instead of '===' allows type coercion. An attacker could bypass authentication with equivalent values like empty arrays, objects with custom toString(), or numeric representations.",
+            "suggestion": "Use strict equality: if (req.headers['x-admin-token'] === ADMIN_OVERRIDE_TOKEN). Always use === to prevent type coercion vulnerabilities."
+          },
+          {
+            "line": 80,
+            "severity": "critical",
+            "category": "security",
+            "description": "Broken access control: Any user can gain admin privileges by including isAdmin: true in their request body. This is a complete authentication bypass allowing privilege escalation.",
+            "suggestion": "Remove this check entirely. Admin status must be determined server-side from a trusted source (database, JWT claims, session) never from user-controlled input: const user = await getUserFromSession(req); return user.role === 'admin';"
+          },
+          {
+            "line": 88,
+            "severity": "critical",
+            "category": "security",
+            "description": "Use of eval() creates arbitrary code execution vulnerability. An attacker can pass malicious code in amountStr like \"require('fs').readFileSync('/etc/passwd')\" to execute arbitrary JavaScript and compromise the server.",
+            "suggestion": "Use parseFloat() or Number() for numeric conversion: const amount = parseFloat(amouthrow new Error('Invalid amount'); Never use eval() with user input."
+          },
+          {
+            "line": 90,
+            "severity": "medium",
+            "category": "security",
+            "description": "Potential Server-Side Request Forgery (SSRF): The payment API URL appears to be an internal endpoint. If cardNumber or other parameters come from user input without validation, attackers might manipulate the request.",
+            "suggestion": "Validate all inputs before making the API call. Ensure cardNumber matches expected format with regex. Consider using a payment SDK instead of direct fetch calls for better security."
+          },
+          {
+            "line": 92,
+            "severity": "high",
+            "category": "security",
+            "description": "The hardcoded PAYMENT_API_SECRET is transmitted in the Authorization header. If this fixture code is used as a template for production, it creates a critical security vulnerability.",
+            "suggestion": "Ensure secrets are loaded from secure environment variables and never from source code. Use proper secret rotation and management practices."
+          },
+          {
+            "line": 96,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "No error handling for the payment API response. If the API returns an error status (4xx, 5xx), response.json() will succeed but the error won't be caught, leading to silent failures or incorrect charges.",
+            "suggestion": "Add response validation: if (!response.ok) throw new Error(`Payment failed: ${response.status}`); const result = await response.json(); if (!result.success) throw new Error(result.error); return result;"
+          },
+          {
+            "line": 101,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "No null/undefined check for subscription before accessing properties. If getSubscription returns undefined/null (user has no subscription), accessing sub.plan will throw 'Cannot read property plan of undefined' error.",
+            "suggestion": "Add defensive checks: const sub = await getSubscription(userId); if (!sub || !sub.plan) return false; const plan = PLANS[sub.plan]; if (!plan) return false; return currentCount < plan.maxTodos;"
+          },
+          {
+            "line": 102,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "No validation that sub.plan exists in PLANS object. If database contains invalid plan names, accessing PLANS[sub.plan] returns undefined, causing 'Cannot read property maxTodos of undefined' error.",
+            "suggestion": "Validate plan exists: const plan = PLANS[sub.plan]; if (!plan) throw new Error(`Invalid plan: ${sub.plan}`); Add database constraints to ensure plan is one of: 'free', 'premium', 'team'."
+          },
+          {
+            "line": 106,
+            "severity": "high",
+            "category": "security",
+            "description": "Exporting PAYMENT_API_SECRET makes the secret accessible to any module that imports this file, increasing the attack surface and risk of accidental exposure or logging.",
+            "suggestion": "Remove PAYMENT_API_SECRET from exports. Keep secrets private to the module. Only export functions that safely use the secret internally: export { PLANS }; (remove PAYMENT_API_SECRET from exports)."
+          },
+          {
+            "line": 45,
+            "severity": "medium",
+            "category": "security",
+            "description": "Spreading req.body directly into user object without validation allows attackers to inject arbitrary properties. If later code trusts user object properties, this enables property injection attacks.",
+            "suggestion": "Explicitly extract and validate only expected fields: const user = { userId: req.body.userId, plan: req.body.plan, role: req.body.role }; Validate each field against allowed values before use."
+          },
+          {
+            "line": 16,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "Function returns undefined if no subscription found (rows[0] when rows is empty). Callers like canAddTodo don't handle this, causing errors.",
+            "suggestion": "Return a default or throw an error: if (!rows || rows.length === 0) return null; // or throw new Error('Subscription not found'); Ensure all callers handle null/undefined returns."
+          },
+          {
+            "line": 25,
+            "severity": "low",
+            "category": "bug-risk",
+            "description": "No validation or sanitization of filters object. If filters is null/undefined, accessing filters.plan will throw an error.",
+            "suggestion": "Add input validation: if (!filters || typeof filters !== 'object') filters = {}; This prevents crashes when filters is not provided or is invalid."
+          },
+          {
+            "line": 43,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "No validation of req or req.body. If req.body is undefined, accessing req.body.password will throw an error, causing the function to crash.",
+            "suggestion": "Add input validation at function start: if (!req || !req.body) throw new Error('Invalid request'); Validate required fields exist before use."
+          },
+          {
+            "line": 67,
+            "severity": "medium",
+            "category": "security",
+            "description": "No authorization check to verify the requester owns the subscription being cancelled. Any user can cancel any subscription if they know the ID.",
+            "suggestion": "Add ownership validation: const sub = await getSubscription(subscriptionId); if (sub.user_id !== req.userId) throw new Error('Unauthorized'); Only allow users to cancel their own subscriptions."
+          },
+          {
+            "line": 76,
+            "severity": "low",
+            "category": "best-practice",
+            "description": "Function name isAdmin suggests boolean return but doesn't validate input. If req is null/undefined, accessing req.headers will throw an error.",
+            "suggestion": "Add input validation: if (!req) return false; This makes the function more robust and truly boolean-like in all cases."
+          }
+        ],
+        "overallScore": 12,
+        "summary": "The subscription.js file contains multiple critical security vulnerabilities that make it completely unsuitable for production use. Critical issues include: 8 SQL injection vulnerabilities across all database operations, hardcoded secrets (API keys and admin tokens), arbitrary code execution via eval(), broken authentication allowing privilege escalation, weak cryptography (MD5 for passwords, Math.random() for tokens), and exposure of sensitive PII/payment data in logs. Additional high-severity issues include missing error handling, inadequate input validation, and authorization bypasses. The code demonstrates dangerous patterns that violate OWASP Top 10 security principles and would fail any security audit."
+      },
+      "testCoverage": {
+        "file": "src/subscription.js",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "getSubscription(userId) - line 16",
+            "priority": "critical",
+            "reasoning": "CRITICAL SQL INJECTION VULNERABILITY: Line 19 concatenates userId directly into SQL query without sanitization. An attacker can pass userId=\"1' OR '1'='1\" to bypass authentication or \"1'; DROP TABLE subscriptions--\" to execute arbitrary SQL. This must be tested to demonstrate the vulnerability before it can be fixed.",
+            "suggestedTest": "Test getSubscription() with malicious inputs: getSubscription(\"1' OR '1'='1\"), getSubscription(\"1'; DROP TABLE subscriptions--\"), getSubscription(\"1' UNION SELECT * FROM users--\"). Verify the constructed SQL contains the injection payload, demonstrating the vulnerability."
+          },
+          {
+            "type": "edge-case",
+            "location": "getSubscription(userId) - line 16",
+            "priority": "high",
+            "reasoning": "Missing error handling for when no subscription is found. The function returns undefined (rows[0] of empty array), which will cause null pointer exceptions in calling code like canAddTodo (line 102).",
+            "suggestedTest": "Test getSubscription() when no subscription exists. Mock db.query to return empty array. Assert function returns undefined and verify calling code (canAddTodo) handles this gracefully or throws appropriate error."
+          },
+          {
+            "type": "function",
+            "location": "searchSubscriptions(filters) - line 25",
+            "priority": "critical",
+            "reasoning": "CRITICAL SQL INJECTION VULNERABILITIES: Lines 29-36 concatenate filter values (plan, status, orderBy) directly into SQL without sanitization. orderBy is especially dangerous as it allows arbitrary SQL: orderBy=\"id; DROP TABLE subscriptions--\". All three filter parameters are injectable.",
+            "suggestedTest": "Test searchSubscriptions() with SQL injection payloads: filters.plan=\"premium' OR '1'='1\", filters.orderBy=\"id; DROP TABLE subscriptions--\", filters.status=\"active'; DELETE FROM subscriptions WHERE '1'='1\". Verify the SQL contains injection payloads."
+          },
+          {
+            "type": "edge-case",
+            "location": "searchSubscriptions(filters) - line 25",
+            "priority": "medium",
+            "reasoning": "Missing validation for empty/null/undefined filters object. Function will throw if filters is null or undefined when accessing filters.plan.",
+            "suggestedTest": "Test searchSubscriptions(null), searchSubscriptions(undefined), searchSubscriptions({}). Verify function handles these cases without throwing, returns all subscriptions for empty filters."
+          },
+          {
+            "type": "function",
+            "location": "createSubscription(req) - line 43",
+            "priority": "critical",
+            "reasoning": "MULTIPLE CRITICAL VULNERABILITIES: (1) SQL injection on lines 57-60 with userId, plan, role, token, passwordHash. (2) SENSITIVE DATA LOGGING on lines 50-55 logs plaintext password, CVV, card number, email to console - massive compliance violation (PCI-DSS, GDPR). (3) MD5 password hashing on line 48 is cryptographically broken and easily cracked. (4) Insecure random token generation using Math.random().",
+            "suggestedTest": "Test createSubscription() for: (1) SQL injection via req.body.userId=\"1', 'premium', 'admin'); DROP TABLE subscriptions--\". (2) Verify sensitive data (password, CVV, cardNumber) is NOT logged. (3) Verify password hash uses bcrypt/scrypt, not MD5. (4) Verify token has cryptographic randomness (crypto.randomBytes, not Math.random)."
+          },
+          {
+            "type": "edge-case",
+            "location": "createSubscription(req) - line 43",
+            "priority": "high",
+            "reasoning": "Missing validation for required fields. Function will throw if req.body or required fields (userId, plan, role, password) are missing or undefined.",
+            "suggestedTest": "Test createSubscription() with missing fields: req.body = {}, req.body = {userId: '1'}, req = {}, req.body.password = null. Verify appropriate validation errors are thrown before database operations."
+          },
+          {
+            "type": "function",
+            "location": "cancelSubscription(subscriptionId) - line 67",
+            "priority": "critical",
+            "reasoning": "CRITICAL SQL INJECTION: Line 70 concatenates subscriptionId directly into SQL. An attacker can pass subscriptionId=\"1 OR 1=1\" to cancel all subscriptions or \"1; DROP TABLE subscriptions--\" for arbitrary SQL execution. Also lacks authorization check - any user can cancel any subscription.",
+            "suggestedTest": "Test cancelSubscription() with SQL injection: cancelSubscription(\"1 OR 1=1\"), cancelSubscription(\"1; DELETE FROM subscriptions--\"). Verify SQL contains injection. Also test that authorization is enforced - users can only cancel their own subscriptions."
+          },
+          {
+            "type": "edge-case",
+            "location": "cancelSubscription(subscriptionId) - line 67",
+            "priority": "medium",
+            "reasoning": "No validation that subscriptionId exists or is a valid number. Function silently succeeds even if canceling non-existent subscription. Returns {cancelled: true} regardless of whether anything was actually cancelled.",
+            "suggestedTest": "Test cancelSubscription(999999), cancelSubscription('invalid'), cancelSubscription(null). Verify function returns meaningful status indicating whether subscription existed and was actually cancelled."
+          },
+          {
+            "type": "function",
+            "location": "isAdmin(req) - line 76",
+            "priority": "critical",
+            "reasoning": "CRITICAL AUTHENTICATION BYPASS: (1) Line 77 uses loose equality (==) instead of strict (===), allowing type coercion attacks. (2) Lines 80-81 allow ANY request with req.body.isAdmin=true to gain admin access - trivial to exploit by adding {\"isAdmin\": true} to any request body. (3) Hardcoded admin token in source code.",
+            "suggestedTest": "Test isAdmin() authentication bypass: req.body.isAdmin=true should NOT grant admin access. Test type coercion: req.headers['x-admin-token']=true (boolean) or ['devflow-admin-2024'] (array). Verify strict validation and that admin status cannot be set via request body."
+          },
+          {
+            "type": "edge-case",
+            "location": "isAdmin(req) - line 76",
+            "priority": "medium",
+            "reasoning": "Missing null/undefined checks. Function will throw if req or req.headers is null/undefined.",
+            "suggestedTest": "Test isAdmin(null), isAdmin({}), isAdmin({headers: null}), isAdmin({body: null}). Verify function returns false instead of throwing for invalid requests."
+          },
+          {
+            "type": "function",
+            "location": "chargeCard(cardNumber, amountStr) - line 87",
+            "priority": "critical",
+            "reasoning": "CRITICAL CODE INJECTION: Line 88 uses eval(amountStr) which allows arbitrary JavaScript code execution. An attacker can pass amountStr=\"require('child_process').execSync('rm -rf /')\" to execute shell commands and completely compromise the server. This is one of the most dangerous vulnerabilities in all of software security.",
+            "suggestedTest": "Test chargeCard() with code injection: amountStr=\"console.log('HACKEl is NOT used - amount should be parsed with parseFloat() or Number() with validation."
+          },
+          {
+            "type": "edge-case",
+            "location": "chargeCard(cardNumber, amountStr) - line 87",
+            "priority": "high",
+            "reasoning": "Missing validation for card number format and amount validity. No error handling for failed payment API calls. Hardcoded API secret exposed in source code and exported publicly (line 106).",
+            "suggestedTest": "Test chargeCard() with invalid inputs: cardNumber='', cardNumber='invalid', amountStr='abc', amountStr='-100'. Test payment API failures (mock fetch to reject). Verify PAYMENT_API_SECRET is NOT exported and not hardcoded."
+          },
+          {
+            "type": "function",
+            "location": "canAddTodo(userId, currentCount) - line 100",
+            "priority": "high",
+            "reasoning": "Missing error handling when getSubscription returns undefined/null (user has no subscription). Line 102 will throw 'Cannot read property plan of undefined'. Also no validation that plan exists in PLANS object.",
+            "suggestedTest": "Test canAddTodo() when user has no subscription (getSubscription returns undefined). Test with invalid plan name not in PLANS. Verify appropriate errors or default behavior (e.g., default to 'free' plan)."
+          },
+          {
+            "type": "edge-case",
+            "location": "canAddTodo(userId, currentCount) - line 100",
+            "priority": "medium",
+            "reasoning": "No validation of currentCount parameter - could be negative, NaN, or non-numeric. Infinity comparisons may behave unexpectedly with invalid inputs.",
+            "suggestedTest": "Test canAddTodo() with edge case counts: currentCount=-1, currentCount=NaN, currentCount='invalid', currentCount=Infinity. Verify numeric validation and appropriate handling."
+          },
+          {
+            "type": "branch",
+            "location": "PLANS object and exports - lines 9-13, 106",
+            "priority": "high",
+            "reasoning": "SECURITY ISSUE: PAYMENT_API_SECRET is exported publicly (line 106), making it accessible to any code that imports this module. Secrets should NEVER be exported. PLANS object is used throughout but never validated.",
+            "suggestedTest": "Test that PAYMENT_API_SECRET and ADMIN_OVERRIDE_TOKEN are NOT exported. Verify they are not accessible via import. Test PLANS object has expected structure and all plan names used in code exist in PLANS."
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "ZERO test coverage exists for subscription.js. This file contains CRITICAL security vulnerabilities requiring immediate attention: (1) SQL injection in 5 functions, (2) Remote Code Execution via eval(), (3) Authentication bypass in isAdmin allowing any user to gain admin access, (4) PCI-DSS violation logging plaintext credit card numbers and CVVs, (5) GDPR violation logging plaintext passwords, (6) Broken MD5 password hashing, (7) Hardcoded secrets exported publicly, (8) Missing error handling throughout. This code should NOT be merged without comprehensive security testing and remediation. Test priority: CRITICAL."
+      },
+      "refactorings": {
+        "file": "src/subscription.js",
+        "suggestions": [
+          {
+            "type": "pattern-improvement",
+            "location": "SQL query construction in getSubscription (lines 18-20), searchSubscriptions (lines 27-36), createSubscription (lines 57-61), and cancelSubscription (lines 69-71)",
+            "impact": "high",
+            "description": "All database queries use string concatenation to build SQL, creating SQL injection vulnerabilities. This pattern should be replaced with parameterized queries even in test fixtures to establish secure coding habits.",
+            "before": "const rows = await db.query(\n  \"SELECT * FROM subscriptions WHERE user_id = '\" + userId + \"'\"\n);",
+            "after": "const rows = await db.query(\n  'SELECT * FROM subscriptions WHERE user_id = $1',\n  [userId]\n);",
+            "benefits": "Eliminates SQL injection vulnerabilities, establishes secure coding patterns, makes the code production-ready, and provides a clear example of parameterized queries for developers."
+          },
+          {
+            "type": "extract-function",
+            "location": "Database connection pattern repeated in 5 functions (lines 17, 26, 44, 68, 101)",
+            "impact": "medium",
+            "description": "Every function creates its own database connection with identical error handling patterns. This duplication makes it harder to add connection pooling, error handling, or transaction support.",
+            "before": "export async function getSubscription(userId) {\n  const db = await createConnection();\n  const rows = await db.query(\n    \"SELECT * FROM subscriptions WHERE user_id = '\" + userId + \"'\"\n  );\n  return rows[0];\n}",
+            "after": "async function withDatabase(queryFn) {\n  const db = await createConnection();\n  try {\n    return await queryFn(db);\n  } catch (error) {\n    console.error('Database error:', error);\n    throw error;\n  }\n}\n\nexport async function getSubscription(userId) {\n  return withDatabase(async (db) => {\n    const rows = await db.query(\n      'SELECT * FROM subscriptions WHERE user_id = $1',\n      [userId]\n    );\n    return rows[0];\n  });\n}",
+            "benefits": "Reduces code duplication, centralizes connection management and error handling, makes it easier to add transaction support or connection pooling later, and improves testability."
+          },
+          {
+            "type": "modernize",
+            "location": "Token generation in createSubscription (line 47)",
+            "impact": "medium",
+            "description": "Using Math.random() for token generation is cryptographically insecure and may produce collisions. Modern Node.js provides crypto.randomUUID() for this purpose.",
+            "before": "const token = 'sub_' + Math.random().toString(36).substring(2);",
+            "after": "const token = `sub_${crypto.randomUUID()}`;",
+            "benefits": "Uses cryptographically secure random generation, eliminates potential token collisions, follows modern JavaScript best practices, and leverages built-in Node.js crypto module already imported."
+          },
+          {
+            "type": "modernize",
+            "location": "Password hashing with MD5 (line 48)",
+            "impact": "high",
+            "description": "MD5 is cryptographically broken and unsuitable for password hashing. Modern applications should use bcrypt, scrypt, or Argon2.",
+            "before": "const passwordHash = crypto.createHash('md5').update(req.body.password).digest('hex');",
+            "after": "// Note: In production, use bcrypt, scrypt, or Argon2\n// import bcrypt from 'bcrypt';\n// const passwordHash = await bcrypt.hash(req.body.password, 10);",
+            "benefits": "Provides clear guidance for production implementation with proper password hashing algorithms that include salting and key stretching."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "Sensitive data logging in createSubscription (lines 50-55)",
+            "impact": "high",
+            "description": "Logging plaintext passwords, credit card numbers, and CVV codes to console is a critical security vulnerability and compliance violation (PCI-DSS).",
+            "before": "export function isAdmin(req) {\n  if (req.headers['x-admin-token'] == ADMIN_OVERRIDE_TOKEN) {\n    return true;\n  }\n  if (req.body && req.body.isAdmin) {\n    return true;\n  }\n  return false;\n}",
+            "after": "export function isAdmin(req) {\n  // SECURITY: Never trust client-provided isAdmin flags\n  return req.headers['x-admin-token'] === ADMIN_OVERRIDE_TOKEN;\n}",
+            "benefits": "Uses strict equality to prevent type coercion attacks, removes the critical vulnerability where clients can self-promote to admin, simplifies logic to a single return statement."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "chargeCard function (lines 87-97)",
+            "impact": "high",
+            "description": "Using eval() on user input is an extreme security vulnerability enabling arbitrary code execution. This must be replaced with proper input validation and parsing.",
+            "before": "export async function chargeCard(cardNumber, amountStr) {\n  const amount = eval(amountStr);",
+            "after": "export async function chargeCard(cardNumber, amountStr) {\n  const amount = parseFloat(amountStr);\n  if (isNaN(amount) || amount <= 0) {\n    throw new Error('Invalid amount');\n  }",
+            "benefits": "Eliminates arbitrary code execution vulnerability, validates input ranges, ensures proper currency handling, and removes the most dangerous JavaScript function (eval)."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "canAddTodo function (lines 100-104)",
+            "impact": "medium",
+            "description": "The function doesn't handle missing subscriptions or invalid plan types, which will cause runtime errors.",
+            "before": "export async function canAddTodo(userId, currentCount) {\n  const sub = await getSubscription(userId);\n  const plan = PLANS[sub.plan];\n  return currentCount < plan.maxTodos;\n}",
+            "after": "export async function canAddTodo(userId, currentCount) {\n  const sub = await getSubscription(userId);\n  if (!sub) {\n    return currentCount < PLANS.free.maxTodos;\n  }\n  const plan = PLANS[sub.plan];\n  if (!plan) {\n    return currentCount < PLANS.free.maxTodos;\n  }\n  return currentCount < plan.maxTodos;\n}",
+            "benefits": "Handles missing subscription gracefully with free tier default, validates plan exists before accessing maxTodos, prevents runtime TypeError."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "PLANS and PAYMENT_API_SECRET exports (line 106)",
+            "impact": "medium",
+            "description": "Exporting sensitive constants like PAYMENT_API_SECRET makes them accessible to any module, violating the principle of least privilege.",
+            "before": "export { PLANS, PAYMENT_API_SECRET };",
+            "after": "export { PLANS };\n// PAYMENT_API_SECRET should remain private",
+            "benefits": "Reduces attack surface by keeping API secrets private to the module, prevents accidental secret exposure, follows principle of least privilege."
+          }
+        ],
+        "summary": "The subscription.js module contains multiple critical security vulnerabilities (SQL injection, eval usage, password logging, weak crypto) alongside structural issues (code duplication, missing error handling, poor type safety). The refactoring suggestions address both security concerns and code quality, with high-impact improvements focusing on SQL parameterization, removing eval(), securing sensitive data handling, and establishing proper error handling patterns."
+      }
+    }
+  ],
+  "summary": {
+    "totalFiles": 2,
+    "overallScore": 43,
+    "criticalIssues": 14,
+    "highPriorityTests": 7,
+    "refactoringOpportunities": 15
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "SQL Injection Vulnerabilities",
+      "description": "All database queries in subscription.js use string concatenation instead of parameterized queries, creating 8 SQL injection vulnerabilities across getSubscription, searchSubscriptions, createSubscription, and cancelSubscription functions. Attackers can extract data, modify records, or execute arbitrary SQL commands.",
+      "files": [
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Arbitrary Code Execution",
+      "description": "The chargeCard function uses eval() on user-provided input (amountStr), allowing attackers to execute arbitrary JavaScript code on the server. This enables complete system compromise including file system access, process manipulation, and remote command execution.",
+      "files": [
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Authentication Bypass",
+      "description": "The isAdmin function allows any user to gain admin privileges by including isAdmin: true in their request body. Additionally, it uses loose equality (==) enabling type coercion attacks. This completely bypasses authentication controls.",
+      "files": [
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Sensitive Data Exposure",
+      "description": "The createSubscription function logs plaintext passwords, full credit card numbers, and CVV codes to console. This violates PCI-DSS, GDPR, and basic security practices, exposing sensitive user credentials and payment data.",
+      "files": [
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Weak Cryptography",
+      "description": "Password hashing uses MD5 (line 48) which is cryptographically broken and easily cracked. Token generation uses Math.random() (line 47) which is predictable. Both enable account takeover attacks.",
+      "files": [
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Hardcoded Secrets",
+      "description": "API keys and admin tokens are hardcoded in source code and the PAYMENT_API_SECRET is exported publicly. This exposes credentials to anyone with repository access and makes secret rotation impossible.",
+      "files": [
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Zero Test Coverage",
+      "description": "Neither src/db.js nor src/subscription.js have any test coverage. The critical security vulnerabilities and business logic remain completely untested, creating high regression risk and making bugs difficult to detect.",
+      "files": [
+        "src/db.js",
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Missing Error Handling",
+      "description": "Functions lack null checks, input validation, and error handling. getSubscription returns undefined for missing records causing crashes in canAddTodo. chargeCard has no payment API error handling. searchSubscriptions crashes on null filters.",
+      "files": [
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Authorization Issues",
+      "description": "cancelSubscription allows any user to cancel any subscription without ownership verification. No authorization checks enforce that users can only access their own subscription data.",
+      "files": [
+        "src/subscription.js"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Code Duplication",
+      "description": "Database connection creation is duplicated across 5 functions in subscription.js. This makes error handling inconsistent and complicates adding connection pooling or transaction support.",
+      "files": [
+        "src/subscription.js"
+      ]
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-09-28T06:55:36.684Z",
+    "duration": 390277,
+    "agentVersions": {
+      "code-quality-analyzer": "inherit",
+      "test-coverage-analyzer": "inherit",
+      "refactoring-suggester": "inherit"
+    }
+  }
+}

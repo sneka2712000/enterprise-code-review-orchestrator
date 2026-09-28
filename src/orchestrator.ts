@@ -76,6 +76,8 @@ schema-valid result for that category rather than failing the entire review.
 Return ONLY data matching the ReviewReport schema.
 `;
 
+      let activeQuery: ReturnType<typeof query> | undefined;
+
       const executeReview = async (): Promise<
         Extract<SDKMessage, { type: 'result' }>
       > => {
@@ -83,6 +85,19 @@ Return ONLY data matching the ReviewReport schema.
           prompt,
           options: {
             model: this.model,
+            canUseTool: async (toolName, input) => {
+              if (toolName.startsWith('mcp__github__')) {
+                return {
+                  behavior: 'allow',
+                  updatedInput: input
+                };
+              }
+
+              return {
+                behavior: 'deny',
+                message: `Tool not permitted: ${toolName}`
+              };
+            },
             allowedTools: [
               'Task',
               'Read',
@@ -91,10 +106,7 @@ Return ONLY data matching the ReviewReport schema.
               'Bash',
               'Skill',
               'mcp__github__*',
-              'mcp__eslint__*'
             ],
-            permissionMode: 'bypassPermissions',
-            allowDangerouslySkipPermissions: true,
             mcpServers: mcpServersConfig,
             agents: {
               'code-quality-analyzer': codeQualityAnalyzer,
@@ -107,6 +119,8 @@ Return ONLY data matching the ReviewReport schema.
             }
           }
         });
+
+        activeQuery = response;
 
         let resultMessage:
           | Extract<SDKMessage, { type: 'result' }>
@@ -129,8 +143,11 @@ Return ONLY data matching the ReviewReport schema.
         () =>
           withTimeout(
             executeReview,
-            120_000,
-            'Code review timed out after 120 seconds.'
+            600_000,
+            'Code review timed out after 10 minutes.',
+            async () => {
+              await activeQuery?.interrupt();
+            }
           ),
         2,
         1_000
@@ -145,7 +162,9 @@ Return ONLY data matching the ReviewReport schema.
       }
 
       if (!resultMessage.structured_output) {
-        throw new Error('Claude returned no structured review output.');
+        console.error(
+          `Claude returned no structured review output (subtype: ${resultMessage.subtype}).`
+        );
       }
 
       const validation = ReviewReportSchema.safeParse(

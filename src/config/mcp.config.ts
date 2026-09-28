@@ -10,11 +10,5 @@ export const mcpServersConfig = {
     env: {
       GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GITHUB_TOKEN || ''
     }
-  },
-  eslint: {
-    type: 'stdio' as const,
-    command: 'npx',
-    args: ['-y', '@eslint/mcp@latest'],
-    env: {}
   }
 };

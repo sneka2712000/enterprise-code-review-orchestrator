@@ -93,24 +93,35 @@ export async function withRetry<T>(
 export async function withTimeout<T>(
   fn: () => Promise<T>,
   timeoutMs: number,
-  errorMessage: string = 'Operation timed out'
+  errorMessage: string = 'Operation timed out',
+  onTimeout?: () => void | Promise<void>
 ): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(
-        new ReviewError(
-          errorMessage,
-          ErrorCodes.AGENT_TIMEOUT,
-          { timeoutMs }
-        )
-      );
+    timeoutId = setTimeout(async () => {
+      try {
+        await onTimeout?.();
+      } finally {
+        reject(
+          new ReviewError(
+            errorMessage,
+            ErrorCodes.AGENT_TIMEOUT,
+            { timeoutMs }
+          )
+        );
+      }
     }, timeoutMs);
   });
 
-  return Promise.race([
-    fn(),
-    timeoutPromise
-  ]);
+  try {
+    return await Promise.race([
+      fn(),
+      timeoutPromise
+    ]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
 }
 
 /**

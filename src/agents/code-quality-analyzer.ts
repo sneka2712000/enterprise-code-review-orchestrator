@@ -11,7 +11,6 @@ export const codeQualityAnalyzer: AgentDefinition = {
     'Bash',
     'Skill',
     'mcp__github__*',
-    'mcp__eslint__*'
   ],
   model: 'inherit',
   prompt: `
